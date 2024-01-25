@@ -32,7 +32,6 @@
 #include "sidebarviewprovider.h"
 #include <qxtglobalshortcut/qxtglobalshortcut.h>
 
-#include <browser/settings.h>
 #include <browser/webbridge.h>
 #include <browser/webcontrol.h>
 #include <core/application.h>
@@ -189,9 +188,6 @@ MainWindow::MainWindow(Core::Application *app, QWidget *parent)
     ui->splitter->insertWidget(0, sb);
     ui->splitter->restoreState(m_settings->verticalSplitterGeometry);
 
-    // Setup web settings.
-    auto webSettings = new Browser::Settings(m_settings, this);
-
     // Setup web bridge.
     m_webBridge = new Browser::WebBridge(this);
     connect(m_webBridge, &Browser::WebBridge::actionTriggered, this, [this](const QString &action) {
@@ -285,8 +281,16 @@ void MainWindow::moveTab(int from, int to)
 BrowserTab *MainWindow::createTab()
 {
     auto tab = new BrowserTab();
-    tab->navigateToStartPage();
     addTab(tab);
+    tab->navigateToStartPage();
+    return tab;
+}
+
+BrowserTab *MainWindow::createTabWithUrl(const QUrl &url)
+{
+    auto tab = new BrowserTab();
+    addTab(tab);
+    tab->navigateTo(url);
     return tab;
 }
 

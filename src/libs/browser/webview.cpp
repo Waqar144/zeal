@@ -2,6 +2,7 @@
 **
 ** Copyright (C) 2015-2016 Oleg Shparber
 ** Copyright (C) 2013-2014 Jerzy Kozera
+** Copyright (C) 2024 Waqar Ahmed
 ** Contact: https://go.zealdocs.org/l/contact
 **
 ** This file is part of Zeal.
@@ -24,13 +25,16 @@
 #include "webview.h"
 
 #include "webcontrol.h"
-#include "webpage.h"
 
 #include <core/application.h>
 #include <core/settings.h>
 #include <ui/browsertab.h>
 #include <ui/mainwindow.h>
+#include <core/networkaccessmanager.h>
+#include <core/application.h>
+#include <core/httpserver.h>
 
+#include <QClipboard>
 #include <QApplication>
 #include <QCheckBox>
 #include <QDesktopServices>
@@ -38,27 +42,37 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QVector>
-#include <QWebEngineProfile>
-#include <QWebEngineSettings>
+#include <QScrollBar>
+#include <QNetworkAccessManager>
 #include <QWheelEvent>
+#include <QNetworkReply>
+#include<QElapsedTimer>
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-#include <QWebEngineContextMenuData>
-#else
-#include <QWebEngineContextMenuRequest>
-#endif
+constexpr size_t s_maxHistoryItems = 15;
 
 using namespace Zeal::Browser;
 
 WebView::WebView(QWidget *parent)
-    : QWebEngineView(parent)
+    : QLiteHtmlWidget(parent)
+    , m_nam(new QNetworkAccessManager(this))
 {
-    setPage(new WebPage(this));
+    auto callback = [this](const QUrl &url) { return resourceLoadCallBack(url); };
+    setResourceHandler(callback);
+
     setZoomLevel(defaultZoomLevel());
 
-    settings()->setAttribute(QWebEngineSettings::FocusOnNavigationEnabled, false);
+    // Make docs' contents visible in dark theme
+    QPalette p = palette();
+    p.setColor(QPalette::Inactive, QPalette::Highlight,
+        p.color(QPalette::Active, QPalette::Highlight));
+    p.setColor(QPalette::Inactive, QPalette::HighlightedText,
+        p.color(QPalette::Active, QPalette::HighlightedText));
+    p.setColor(QPalette::Base, Qt::white);
+    p.setColor(QPalette::Text, Qt::black);
+    setPalette(p);
 
-    QApplication::instance()->installEventFilter(this);
+    connect(this, &QLiteHtmlWidget::linkClicked, this, &WebView::load);
+    connect(this, &QLiteHtmlWidget::contextMenuRequested, this, &WebView::onContextMenuRequested);
 }
 
 int WebView::zoomLevel() const
@@ -113,120 +127,86 @@ void WebView::resetZoom()
     setZoomLevel(defaultZoomLevel());
 }
 
-QWebEngineView *WebView::createWindow(QWebEnginePage::WebWindowType type)
+void WebView::onContextMenuRequested(QPoint pos, const QUrl &linkUrl)
 {
-    Q_UNUSED(type)
-    return Core::Application::instance()->mainWindow()->createTab()->webControl()->m_webView;
-}
-
-void WebView::contextMenuEvent(QContextMenuEvent *event)
-{
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    const QWebEngineContextMenuData& contextData = page()->contextMenuData();
-
-    if (!contextData.isValid()) {
-        QWebEngineView::contextMenuEvent(event);
-        return;
-    }
-#else
-    QWebEngineContextMenuRequest *contextMenuRequest = lastContextMenuRequest();
-    if (contextMenuRequest == nullptr) {
-        QWebEngineView::contextMenuEvent(event);
-        return;
-    }
-#endif
-
-    event->accept();
-
-    if (m_contextMenu) {
-        m_contextMenu->deleteLater();
-    }
-
-    m_contextMenu = new QMenu(this);
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    QUrl linkUrl = contextData.linkUrl();
-#else
-    QUrl linkUrl = contextMenuRequest->linkUrl();
-#endif
+    QMenu menu(this);
 
     if (linkUrl.isValid()) {
         const QString scheme = linkUrl.scheme();
 
         if (scheme != QLatin1String("javascript")) {
-            m_contextMenu->addAction(tr("Open Link in New Tab"), this, [this]() {
-                triggerPageAction(QWebEnginePage::WebAction::OpenLinkInNewWindow);
+            menu.addAction(tr("Open Link in New Tab"), this, [this, linkUrl]() {
+                Q_EMIT openLinkInNewTab(linkUrl);
             });
         }
 
         if (scheme != QLatin1String("qrc")) {
             if (scheme != QLatin1String("javascript")) {
-                m_contextMenu->addAction(tr("Open Link in Desktop Browser"), this, [linkUrl]() {
+                menu.addAction(tr("Open Link in Desktop Browser"), this, [linkUrl]() {
                     QDesktopServices::openUrl(linkUrl);
                 });
             }
 
-            m_contextMenu->addAction(pageAction(QWebEnginePage::CopyLinkToClipboard));
+            menu.addAction(tr("Copy Link"), this, [linkUrl]() {
+                QApplication::clipboard()->setText(linkUrl.toString());
+            });
         }
     }
 
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    const QString selectedText = contextData.selectedText();
-#else
-    const QString selectedText = contextMenuRequest->selectedText();
-#endif
+    const QString selectedText = this->selectedText();
 
     if (!selectedText.isEmpty()) {
-        if (!m_contextMenu->isEmpty()) {
-            m_contextMenu->addSeparator();
+        if (!menu.isEmpty()) {
+            menu.addSeparator();
         }
-
-        m_contextMenu->addAction(pageAction(QWebEnginePage::Copy));
+        menu.addAction(tr("Copy"), this, [selectedText]() {
+            QApplication::clipboard()->setText(selectedText);
+        });
     }
 
     if (!linkUrl.isValid() && url().scheme() != QLatin1String("qrc")) {
-        if (!m_contextMenu->isEmpty()) {
-            m_contextMenu->addSeparator();
+        if (!menu.isEmpty()) {
+            menu.addSeparator();
         }
 
-        m_contextMenu->addAction(pageAction(QWebEnginePage::Back));
-        m_contextMenu->addAction(pageAction(QWebEnginePage::Forward));
-        m_contextMenu->addSeparator();
+        auto b = menu.addAction(tr("Back"), this, &WebView::back);
+        b->setEnabled(canGoBack());
+        auto f = menu.addAction(tr("Forward"), this, &WebView::forward);
+        f->setEnabled(canGoForward());
+        menu.addSeparator();
 
-        m_contextMenu->addAction(tr("Open Page in Desktop Browser"), this, [this]() {
+        menu.addAction(tr("Open Page in Desktop Browser"), this, [this]() {
             QDesktopServices::openUrl(url());
         });
     }
 
-    if (m_contextMenu->isEmpty()) {
+    if (menu.isEmpty()) {
         return;
     }
 
-    m_contextMenu->popup(event->globalPos());
+    menu.exec(mapToGlobal(pos));
 }
 
-bool WebView::handleMousePressEvent(QMouseEvent *event)
+void WebView::mousePressEvent(QMouseEvent *event)
 {
     switch (event->button()) {
     case Qt::BackButton:
         back();
         event->accept();
-        return true;
+        return;
 
     case Qt::ForwardButton:
         forward();
         event->accept();
-        return true;
+        return;
 
     default:
         break;
     }
-
-    return false;
+    return QLiteHtmlWidget::mousePressEvent(event);
 }
 
-bool WebView::handleWheelEvent(QWheelEvent *event)
+void WebView::wheelEvent(QWheelEvent *event)
 {
     if (event->modifiers() & Qt::ControlModifier) {
         const QPoint angleDelta = event->angleDelta();
@@ -241,34 +221,109 @@ bool WebView::handleWheelEvent(QWheelEvent *event)
 
         setZoomLevel(m_zoomLevel + levelDelta);
         event->accept();
-        return true;
+        return ;
     }
 
-    return false;
+    return QLiteHtmlWidget::wheelEvent(event);
 }
 
-bool WebView::eventFilter(QObject *watched, QEvent *event)
+QByteArray WebView::resourceLoadCallBack(const QUrl &url) {
+    if (!url.isValid()) return {};
+
+    QEventLoop loop;
+    QByteArray data;
+
+    QNetworkReply *reply = m_nam->get(QNetworkRequest(url));
+    connect(reply, &QNetworkReply::finished, this, [&data, &loop, reply] {
+        if (reply->error() == QNetworkReply::NoError) data = reply->readAll();
+        reply->deleteLater();
+        loop.exit();
+    });
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    return data;
+}
+
+void WebView::load(const QUrl &url)
 {
-    if (watched->parent() == this) {
-        switch (event->type()) {
-        case QEvent::MouseButtonPress:
-            if (handleMousePressEvent(static_cast<QMouseEvent *>(event))) {
-                return true;
-            }
-
-            break;
-
-        case QEvent::Wheel:
-            if (handleWheelEvent(static_cast<QWheelEvent *>(event))) {
-                return true;
-            }
-
-            break;
-
-        default:
-            break;
-        }
+    if (url == this->url()) {
+        return;
     }
 
-    return QWebEngineView::eventFilter(watched, event);
+    // add current pos to history
+    if (this->url().isValid()) {
+        auto curr = currentHistoryItem();
+        m_historyBack.push_back(curr);
+        // ensure we dont cross limits
+        while (m_historyBack.size() > s_maxHistoryItems)
+            m_historyBack.erase(m_historyBack.begin());
+    }
+
+    QUrl u = url;
+    u.setFragment({});
+
+    // only load html if url is different after removing fragment
+    if (u != this->url()) {
+        QElapsedTimer t;
+        t.start();
+        auto data = resourceLoadCallBack(url);
+        setUrl(u);
+        setHtml(QString::fromUtf8(data));
+        qDebug() << url << "loaded in:" << t.elapsed();
+        Q_EMIT urlChanged(u);
+    }
+
+    if (url.hasFragment()) {
+        scrollToAnchor(url.fragment(QUrl::FullyEncoded));
+    }
+}
+
+HistoryItem WebView::currentHistoryItem() const
+{
+    return HistoryItem {this->url(), this->title(), this->verticalScrollBar()->value()};
+}
+
+bool WebView::canGoBack()
+{
+    return !m_historyBack.empty();
+}
+
+bool WebView::canGoForward()
+{
+    return !m_historyForward.empty();
+}
+
+void WebView::back()
+{
+    if (m_historyBack.empty()) {
+        return;
+    }
+
+    auto curr = currentHistoryItem();
+
+    m_historyForward.insert(m_historyForward.begin(), curr);
+    curr = m_historyBack.back();
+    m_historyBack.pop_back();
+    load(curr.url);
+    if (curr.vScrollPos > 0) {
+        verticalScrollBar()->setValue(curr.vScrollPos);
+    }
+}
+
+void WebView::forward()
+{
+    if (m_historyForward.empty()) {
+        return;
+    }
+
+    auto curr = currentHistoryItem();
+
+    m_historyBack.push_back(curr);
+    curr = m_historyForward.front();
+    m_historyForward.erase(m_historyForward.begin());
+
+    load(curr.url);
+    if (curr.vScrollPos > 0) {
+        verticalScrollBar()->setValue(curr.vScrollPos);
+    }
 }

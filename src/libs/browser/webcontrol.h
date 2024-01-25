@@ -25,6 +25,7 @@
 #define ZEAL_BROWSER_WEBCONTROL_H
 
 #include <QWidget>
+#include "historyitem.h"
 
 class QWebEngineHistory;
 
@@ -49,9 +50,10 @@ public:
     QString title() const;
     QUrl url() const;
 
-    QWebEngineHistory *history() const;
     void restoreHistory(const QByteArray &array);
     QByteArray saveHistory() const;
+    const std::vector<HistoryItem> &backHistory() const;
+    const std::vector<HistoryItem> &forwardHistory() const;
 
     int zoomLevel() const;
     void setZoomLevel(int level);
@@ -62,6 +64,7 @@ public:
 signals:
     void titleChanged(const QString &title);
     void urlChanged(const QUrl &url);
+    void openLinkInNewTab(const QUrl &url);
 
 public slots:
     void activateSearchBar();

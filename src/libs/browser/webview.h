@@ -2,6 +2,7 @@
 **
 ** Copyright (C) 2015-2016 Oleg Shparber
 ** Copyright (C) 2013-2014 Jerzy Kozera
+** Copyright (C) 2024 Waqar Ahmed
 ** Contact: https://go.zealdocs.org/l/contact
 **
 ** This file is part of Zeal.
@@ -24,12 +25,16 @@
 #ifndef ZEAL_BROWSER_WEBVIEW_H
 #define ZEAL_BROWSER_WEBVIEW_H
 
-#include <QWebEngineView>
+#include <3rdparty/qlitehtml/src/qlitehtmlwidget.h>
+#include "historyitem.h"
+
+class QNetworkAccessManager;
+class QMenu;
 
 namespace Zeal {
 namespace Browser {
 
-class WebView final : public QWebEngineView
+class WebView final : public QLiteHtmlWidget
 {
     Q_OBJECT
     Q_DISABLE_COPY(WebView)
@@ -39,10 +44,26 @@ public:
     int zoomLevel() const;
     void setZoomLevel(int level);
 
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    void load(const QUrl &url);
 
     static const QVector<int> &availableZoomLevels();
     static int defaultZoomLevel();
+
+    bool canGoBack();
+    bool canGoForward();
+
+    void back();
+    void forward();
+
+    const std::vector<HistoryItem> &backHistoryItems() const
+    {
+        return m_historyBack;
+    }
+
+    const std::vector<HistoryItem> &forwardHistoryItems() const
+    {
+        return m_historyForward;
+    }
 
 public slots:
     void zoomIn();
@@ -51,18 +72,23 @@ public slots:
 
 signals:
     void zoomLevelChanged();
+    void openLinkInNewTab(const QUrl &url);
+    void urlChanged(const QUrl &url);
 
 protected:
-    QWebEngineView *createWindow(QWebEnginePage::WebWindowType type) override;
-    void contextMenuEvent(QContextMenuEvent *event) override;
+    void onContextMenuRequested(QPoint pos, const QUrl &url);
 
 private:
-    bool handleMousePressEvent(QMouseEvent *event);
-    bool handleWheelEvent(QWheelEvent *event);
+    HistoryItem currentHistoryItem() const;
+    QByteArray resourceLoadCallBack(const QUrl &url);
+    void mousePressEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
-    QMenu *m_contextMenu = nullptr;
+    QNetworkAccessManager *m_nam = nullptr;
     QUrl m_clickedLink;
     int m_zoomLevel = 0;
+    std::vector<HistoryItem> m_historyBack;
+    std::vector<HistoryItem> m_historyForward;
 };
 
 } // namespace Browser

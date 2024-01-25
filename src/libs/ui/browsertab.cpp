@@ -25,6 +25,7 @@
 #include "searchsidebar.h"
 #include "widgets/layouthelper.h"
 #include "widgets/toolbarframe.h"
+#include "mainwindow.h"
 
 #include <browser/webcontrol.h>
 #include <core/application.h>
@@ -39,7 +40,7 @@
 #include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
-#include <QWebEngineHistory>
+#include <QDebug>
 
 using namespace Zeal;
 using namespace Zeal::WidgetUi;
@@ -71,6 +72,9 @@ BrowserTab::BrowserTab(QWidget *parent)
         m_backButton->setEnabled(m_webControl->canGoBack());
         m_forwardButton->setEnabled(m_webControl->canGoForward());
     });
+    connect(m_webControl, &Browser::WebControl::openLinkInNewTab, this, [this](const QUrl &url){
+       Core::Application::instance()->mainWindow()->createTabWithUrl(url);
+    });
 
     // Setup navigation toolbar.
     m_backButton = new QToolButton();
@@ -83,12 +87,13 @@ BrowserTab::BrowserTab(QWidget *parent)
     auto backMenu = new QMenu(m_backButton);
     connect(backMenu, &QMenu::aboutToShow, this, [this, backMenu]() {
         backMenu->clear();
-        QWebEngineHistory *history = m_webControl->history();
-        QList<QWebEngineHistoryItem> items = history->backItems(10);
+        const auto &items = m_webControl->backHistory();
         for (auto it = items.crbegin(); it != items.crend(); ++it) {
-            const QIcon icon = docsetIcon(it->url());
-            const QWebEngineHistoryItem item = *it;
-            backMenu->addAction(icon, it->title(), this, [=](bool) { history->goToItem(item); });
+            const QIcon icon = docsetIcon(it->url);
+            backMenu->addAction(icon, it->title, this, [=](bool) {
+                // history->goToItem(item);
+                // TODO
+            });
         }
     });
     m_backButton->setMenu(backMenu);
@@ -105,11 +110,12 @@ BrowserTab::BrowserTab(QWidget *parent)
     auto forwardMenu = new QMenu(m_forwardButton);
     connect(forwardMenu, &QMenu::aboutToShow, this, [this, forwardMenu]() {
         forwardMenu->clear();
-        QWebEngineHistory *history = m_webControl->history();
-        const auto forwardItems = history->forwardItems(10);
-        for (const QWebEngineHistoryItem &item : forwardItems) {
-            const QIcon icon = docsetIcon(item.url());
-            forwardMenu->addAction(icon, item.title(), this, [=](bool) { history->goToItem(item); });
+        for (const auto &item : m_webControl->forwardHistory()) {
+            const QIcon icon = docsetIcon(item.url);
+            forwardMenu->addAction(icon, item.title, this, [=](bool) {
+                // history->goToItem(item);
+                // TODO
+            });
         }
     });
     m_forwardButton->setMenu(forwardMenu);
@@ -207,6 +213,11 @@ SearchSidebar *BrowserTab::searchSidebar()
 void BrowserTab::navigateToStartPage()
 {
     m_webControl->load(QUrl(WelcomePageUrl));
+}
+
+void BrowserTab::navigateTo(const QUrl &url)
+{
+    m_webControl->load(url);
 }
 
 void BrowserTab::search(const Registry::SearchQuery &query)

@@ -65,6 +65,7 @@ public:
     void search(const Registry::SearchQuery &query);
     void bringToFront();
     BrowserTab *createTab();
+    BrowserTab *createTabWithUrl(const QUrl &url);
 
 public slots:
     void toggleWindow();

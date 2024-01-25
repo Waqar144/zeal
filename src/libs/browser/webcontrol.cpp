@@ -31,14 +31,10 @@
 #include <QDataStream>
 #include <QKeyEvent>
 #include <QVBoxLayout>
-#include <QWebChannel>
-#include <QWebEngineHistory>
-#include <QWebEnginePage>
-#include <QWebEngineSettings>
 
 using namespace Zeal::Browser;
 
-WebControl::WebControl(QWidget *parent)
+WebControl::WebControl(QWidget* parent)
     : QWidget(parent)
 {
     auto layout = new QVBoxLayout(this);
@@ -48,15 +44,12 @@ WebControl::WebControl(QWidget *parent)
     m_webView = new WebView();
     setFocusProxy(m_webView);
 
-    connect(m_webView->page(), &QWebEnginePage::linkHovered, this, [this](const QString &link) {
-        if (Core::NetworkAccessManager::isLocalUrl(QUrl(link))) {
-            return;
-        }
-
-        m_webView->setToolTip(link);
+    connect(m_webView, &WebView::urlChanged, this, [this](const QUrl& url) {
+        Q_EMIT titleChanged(m_webView->title());
+        Q_EMIT urlChanged(url);
     });
-    connect(m_webView, &QWebEngineView::titleChanged, this, &WebControl::titleChanged);
-    connect(m_webView, &QWebEngineView::urlChanged, this, &WebControl::urlChanged);
+    connect(m_webView, &WebView::urlChanged, this, &WebControl::urlChanged);
+    connect(m_webView, &WebView::openLinkInNewTab, this, &WebControl::openLinkInNewTab);
 
     layout->addWidget(m_webView);
 
@@ -93,22 +86,21 @@ void WebControl::resetZoom()
     m_webView->resetZoom();
 }
 
-void WebControl::setJavaScriptEnabled(bool enabled)
+void WebControl::setJavaScriptEnabled(bool)
 {
-    m_webView->page()->settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, enabled);
 }
 
-void WebControl::setWebBridgeObject(const QString &name, QObject *object)
+void WebControl::setWebBridgeObject(const QString& name, QObject* object)
 {
-    QWebEnginePage *page = m_webView->page();
-
-    QWebChannel *channel = new QWebChannel(page);
-    channel->registerObject(name, object);
-
-    page->setWebChannel(channel);
+    // QWebEnginePage *page = m_webView->page();
+    //
+    // QWebChannel *channel = new QWebChannel(page);
+    // channel->registerObject(name, object);
+    //
+    // page->setWebChannel(channel);
 }
 
-void WebControl::load(const QUrl &url)
+void WebControl::load(const QUrl& url)
 {
     m_webView->load(url);
 }
@@ -120,10 +112,10 @@ void WebControl::activateSearchBar()
         layout()->addWidget(m_searchToolBar);
     }
 
-    if (m_webView->hasSelection()) {
-        const QString selectedText = m_webView->selectedText().simplified();
-        if (!selectedText.isEmpty()) {
-            m_searchToolBar->setText(selectedText);
+    const auto text = m_webView->selectedText().simplified();
+    if (!text.isEmpty()) {
+        if (!text.isEmpty()) {
+            m_searchToolBar->setText(text);
         }
     }
 
@@ -142,12 +134,12 @@ void WebControl::forward()
 
 bool WebControl::canGoBack() const
 {
-    return m_webView->history()->canGoBack();
+    return m_webView->canGoBack();
 }
 
 bool WebControl::canGoForward() const
 {
-    return m_webView->history()->canGoForward();
+    return m_webView->canGoForward();
 }
 
 QString WebControl::title() const
@@ -160,26 +152,31 @@ QUrl WebControl::url() const
     return m_webView->url();
 }
 
-QWebEngineHistory *WebControl::history() const
+void WebControl::restoreHistory(const QByteArray& array)
 {
-    return m_webView->history();
-}
-
-void WebControl::restoreHistory(const QByteArray &array)
-{
-    QDataStream stream(array);
-    stream >> *m_webView->history();
+    // QDataStream stream(array);
+    // stream >> *m_webView->history();
 }
 
 QByteArray WebControl::saveHistory() const
 {
     QByteArray array;
-    QDataStream stream(&array, QIODevice::WriteOnly);
-    stream << *m_webView->history();
+    // QDataStream stream(&array, QIODevice::WriteOnly);
+    // stream << *m_webView->history();
     return array;
 }
 
-void WebControl::keyPressEvent(QKeyEvent *event)
+const std::vector<HistoryItem> &WebControl::backHistory() const
+{
+    return m_webView->backHistoryItems();
+}
+
+const std::vector<HistoryItem> &WebControl::forwardHistory() const
+{
+    return m_webView->forwardHistoryItems();
+}
+
+void WebControl::keyPressEvent(QKeyEvent* event)
 {
     switch (event->key()) {
     case Qt::Key_Slash:

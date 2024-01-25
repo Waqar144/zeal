@@ -55,6 +55,7 @@ public:
 
     Browser::WebControl *webControl() const;
     SearchSidebar *searchSidebar(); // TODO: const
+    void navigateTo(const QUrl &url);
 
 public slots:
     void navigateToStartPage();
