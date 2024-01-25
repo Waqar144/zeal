@@ -13,8 +13,10 @@
 #include <QStandardPaths>
 #include <QUrl>
 #include <QUuid>
+#if 0
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
+#endif
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
 #include <QStyle>
@@ -183,6 +185,7 @@ void Settings::load()
     applyColorScheme();
 #endif
 
+#if 0
     // Fonts
     QWebEngineSettings *webSettings = QWebEngineProfile::defaultProfile()->settings();
     serifFontFamily = settings
@@ -202,10 +205,12 @@ void Settings::load()
         {{QStringLiteral("sans-serif"), QWebEngineSettings::SansSerifFont},
          {QStringLiteral("serif"), QWebEngineSettings::SerifFont},
          {QStringLiteral("monospace"), QWebEngineSettings::FixedFont}};
+#endif
 
     defaultFontFamily = settings->value(QStringLiteral("default_font_family"), QStringLiteral("serif")).toString();
 
     // Fallback to the serif font family.
+#if 0
     if (!fontFamilies.contains(defaultFontFamily)) {
         defaultFontFamily = QStringLiteral("serif");
     }
@@ -233,6 +238,7 @@ void Settings::load()
     webSettings->setFontSize(QWebEngineSettings::DefaultFontSize, defaultFontSize);
     webSettings->setFontSize(QWebEngineSettings::DefaultFixedFontSize, defaultFixedFontSize);
     webSettings->setFontSize(QWebEngineSettings::MinimumFontSize, minimumFontSize);
+#endif
 
     isHighlightOnNavigateEnabled = settings->value(QStringLiteral("highlight_on_navigate"), true).toBool();
     customCssFile = settings->value(QStringLiteral("custom_css_file")).toString();

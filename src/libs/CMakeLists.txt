@@ -1,3 +1,5 @@
+add_subdirectory(3rdparty)
+
 add_subdirectory(browser)
 add_subdirectory(core)
 add_subdirectory(registry)

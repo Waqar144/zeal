@@ -19,7 +19,8 @@ target_link_libraries(Core PRIVATE
 
 if(QT_VERSION_MAJOR EQUAL 6)
     find_package(Qt6 COMPONENTS WebEngineCore REQUIRED)
-    target_link_libraries(Core PRIVATE Qt6::WebEngineCore)
+    # target_link_libraries(Core PRIVATE Qt6::WebEngineCore)
+    target_link_libraries(Core PRIVATE Qt${QT_VERSION_MAJOR}::Network Qt${QT_VERSION_MAJOR}::Widgets)
 else()
     find_package(Qt5 COMPONENTS WebEngineWidgets REQUIRED)
     target_link_libraries(Core PRIVATE Qt5::WebEngineWidgets)

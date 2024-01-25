@@ -11,7 +11,6 @@
 #include "settingsdialog.h"
 #include "sidebarviewprovider.h"
 
-#include <browser/settings.h>
 #include <browser/webbridge.h>
 #include <browser/webcontrol.h>
 #include <core/application.h>
@@ -114,6 +113,7 @@ MainWindow::MainWindow(Core::Application *app, QWidget *parent)
     m_splitter->insertWidget(0, sb);
     m_splitter->restoreState(m_settings->verticalSplitterGeometry);
 
+#if 0
     // Setup web settings.
     new Browser::Settings(m_settings, this);
 
@@ -127,6 +127,7 @@ MainWindow::MainWindow(Core::Application *app, QWidget *parent)
             m_showPreferencesAction->trigger();
         }
     });
+#endif
 
     createTab();
 
@@ -181,6 +182,7 @@ void MainWindow::moveTab(int from, int to)
     m_webViewStack->insertWidget(to, w);
 }
 
+#if 0
 BrowserTab *MainWindow::createTab(const QUrl &url, bool activate)
 {
     BrowserTab *tab;
@@ -209,6 +211,7 @@ BrowserTab *MainWindow::createTab(const QUrl &url, bool activate)
 
     return tab;
 }
+#endif
 
 void MainWindow::duplicateTab(int index)
 {
@@ -251,7 +254,10 @@ void MainWindow::addTab(BrowserTab *tab, int index, bool activate)
     tab->webControl()->setWebBridgeObject("zAppBridge", m_webBridge);
 
     connect(tab->searchSidebar(), &SearchSidebar::openInNewTabRequested, this, [this](const QUrl &url, bool activate) {
+#if 0
         createTab(url, activate);
+#endif
+        createTabWithUrl(url);
     });
 
     if (index == -1) {
@@ -795,6 +801,22 @@ void MainWindow::toggleWindow()
             showMinimized();
         }
     }
+}
+
+BrowserTab *MainWindow::createTab()
+{
+    auto tab = new BrowserTab();
+    addTab(tab);
+    tab->navigateToStartPage();
+    return tab;
+}
+
+BrowserTab *MainWindow::createTabWithUrl(const QUrl &url)
+{
+    auto tab = new BrowserTab();
+    addTab(tab);
+    tab->navigateTo(url);
+    return tab;
 }
 
 } // namespace Zeal::WidgetUi

@@ -8,16 +8,22 @@
 
 class QLineEdit;
 class QToolButton;
+#if 0
 class QWebEngineView;
+#endif
 
 namespace Zeal::Browser {
+class WebView;
 
 class SearchToolBar final : public QWidget
 {
     Q_OBJECT
     Q_DISABLE_COPY_MOVE(SearchToolBar)
 public:
+#if 0
     explicit SearchToolBar(QWebEngineView *webView, QWidget *parent = nullptr);
+#endif
+    explicit SearchToolBar(WebView *webView, QWidget *parent = nullptr);
     ~SearchToolBar() override = default;
 
     void setText(const QString &text);
@@ -42,7 +48,7 @@ private:
     QToolButton *m_findPreviousButton = nullptr;
     QToolButton *m_matchCaseButton = nullptr;
 
-    QWebEngineView *m_webView = nullptr;
+    WebView *m_webView = nullptr;
 };
 
 } // namespace Zeal::Browser

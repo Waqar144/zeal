@@ -12,18 +12,22 @@
 
 #include <QDir>
 #include <QFileDialog>
+#if 0
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
+#endif
 
 namespace Zeal::WidgetUi {
 
 namespace {
 // QFontDatabase::standardSizes() lacks some sizes, like 13, which QtWK uses by default.
+#if 0
 constexpr int AvailableFontSizes[] = {9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24,
                                       26, 28, 30, 32, 34, 36, 40, 44, 48, 56, 64, 72};
 constexpr QWebEngineSettings::FontFamily BasicFontFamilies[] = {QWebEngineSettings::SerifFont,
                                                                 QWebEngineSettings::SansSerifFont,
                                                                 QWebEngineSettings::FixedFont};
+#endif
 } // namespace
 
 SettingsDialog::SettingsDialog(QWidget *parent)
@@ -48,11 +52,13 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     ui->defaultFontComboBox->addItem(tr("Monospace"), QStringLiteral("monospace"));
 
     ui->minFontSizeComboBox->addItem(tr("None"), 0);
+#if 0
     for (int fontSize : AvailableFontSizes) {
         ui->fontSizeComboBox->addItem(QString::number(fontSize), fontSize);
         ui->fixedFontSizeComboBox->addItem(QString::number(fontSize), fontSize);
         ui->minFontSizeComboBox->addItem(QString::number(fontSize), fontSize);
     }
+#endif
 
     // Fix tab order.
     setTabOrder(ui->defaultFontComboBox, ui->fontSizeComboBox);
@@ -64,6 +70,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
         ui->globalHotKeyGroupBox->setToolTip(tr("Global shortcuts are not supported on the current platform."));
     }
 
+#if 0
     QWebEngineSettings *webSettings = Browser::Settings::defaultProfile()->settings();
 
     // Avoid casting in each connect.
@@ -113,7 +120,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
         const int fontSize = index == 0 ? 0 : AvailableFontSizes[index - 1];
         webSettings->setFontSize(QWebEngineSettings::MinimumFontSize, fontSize);
     });
-
+#endif
     loadSettings();
 }
 

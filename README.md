@@ -1,4 +1,7 @@
-# Zeal
+# Zeal (QLiteHtml based)
+
+This fork of Zeal used Litehtml for rendering html. Other than that, it is the same as the original project
+---
 
 [![Changelog](https://img.shields.io/github/release/zealdocs/zeal.svg?style=flat-square)](https://github.com/zealdocs/zeal/releases)
 [![Gitter](https://img.shields.io/gitter/room/zealdocs/zeal.svg?style=flat-square)](https://gitter.im/zealdocs/zeal)

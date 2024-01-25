@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "searchtoolbar.h"
+#include "webview.h"
 
 #include <QAction>
 #include <QApplication>
@@ -10,12 +11,14 @@
 #include <QLineEdit>
 #include <QStyle>
 #include <QToolButton>
+#if 0
 #include <QWebEnginePage>
 #include <QWebEngineView>
+#endif
 
 namespace Zeal::Browser {
 
-SearchToolBar::SearchToolBar(QWebEngineView *webView, QWidget *parent)
+SearchToolBar::SearchToolBar(WebView *webView, QWidget *parent)
     : QWidget(parent)
     , m_webView(webView)
 {
@@ -153,9 +156,8 @@ void SearchToolBar::findNext()
         return;
     }
 
-    QWebEnginePage::FindFlags ff;
-    ff.setFlag(QWebEnginePage::FindCaseSensitively, m_matchCaseButton->isChecked());
-    m_webView->findText(m_lineEdit->text(), ff);
+    QTextDocument::FindFlags ff = QTextDocument::FindCaseSensitively;
+    m_webView->findText(m_lineEdit->text(), ff, true);
 }
 
 void SearchToolBar::findPrevious()
@@ -164,15 +166,14 @@ void SearchToolBar::findPrevious()
         return;
     }
 
-    QWebEnginePage::FindFlags ff;
-    ff.setFlag(QWebEnginePage::FindCaseSensitively, m_matchCaseButton->isChecked());
-    ff.setFlag(QWebEnginePage::FindBackward);
-    m_webView->findText(m_lineEdit->text(), ff);
+    QTextDocument::FindFlags ff = QTextDocument::FindBackward;
+    ff.setFlag(QTextDocument::FindCaseSensitively, m_matchCaseButton->isChecked());
+    m_webView->findText(m_lineEdit->text(), ff, true);
 }
 
 void SearchToolBar::hideHighlight()
 {
-    m_webView->findText(QString());
+    m_webView->findText(QString(), {}, true);
 }
 
 } // namespace Zeal::Browser

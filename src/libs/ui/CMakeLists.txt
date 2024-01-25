@@ -22,5 +22,7 @@ add_library(Ui STATIC
 
 target_link_libraries(Ui PRIVATE Browser Sidebar QxtGlobalShortcut Widgets Registry Util)
 
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS WebEngineWidgets REQUIRED)
-target_link_libraries(Ui PRIVATE Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+# find_package(Qt${QT_VERSION_MAJOR} COMPONENTS WebEngineWidgets REQUIRED)
+# target_link_libraries(Ui PRIVATE Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets Network REQUIRED)
+target_link_libraries(Ui PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
